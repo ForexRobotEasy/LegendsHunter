@@ -1,0 +1,81 @@
+mql5
+//+------------------------------------------------------------------+
+//|                                                  LegendsHunter   |
+//|                                        Developer: Forex Robot Easy Team|
+//|                                        Website: forexroboteasy.com|
+//+------------------------------------------------------------------+
+
+//--- Input parameters
+input double initialDeposit = 500.0; // Initial deposit amount
+input ENUM_TIMEFRAMES timeframe = PERIOD_M1; // Timeframe
+input int fastMAperiod = 5; // Period for fast moving average
+input int slowMAperiod = 10; // Period for slow moving average
+
+//--- Global variables
+double lotSize; // Trading lot size
+double fastMA; // Fast moving average
+double slowMA; // Slow moving average
+
+//--- Initialization
+void OnInit()
+{
+    // Calculate lot size based on initial deposit
+    lotSize = initialDeposit / 10000.0;
+
+    // Set indicator for fast moving average
+    SetIndexBuffer(0, fastMA);
+    SetIndexStyle(0, DRAW_LINE);
+    SetIndexLabel(0, 'Fast MA');
+
+    // Set indicator for slow moving average
+    SetIndexBuffer(1, slowMA);
+    SetIndexStyle(1, DRAW_LINE);
+    SetIndexLabel(1, 'Slow MA');
+}
+
+//--- Start function
+void OnTick()
+{
+    // Calculate fast moving average
+    fastMA = iMA(Symbol(), timeframe, fastMAperiod, 0, MODE_SMA, PRICE_CLOSE, 0);
+
+    // Calculate slow moving average
+    slowMA = iMA(Symbol(), timeframe, slowMAperiod, 0, MODE_SMA, PRICE_CLOSE, 0);
+
+    // Check for trading opportunities
+    if (fastMA > slowMA)
+    {
+        // Open buy position
+        OrderSend(Symbol(), OP_BUY, lotSize, Ask, 3, Bid-StopLoss*Point, Bid+TakeProfit*Point);
+
+        // Close sell position if one is open
+        if (PositionSelect(Symbol()))
+        {
+            if (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL)
+                OrderClose(PositionGetTicket(), PositionGetDouble(POSITION_VOLUME), Bid, 3);
+        }
+    }
+    else if (fastMA < slowMA)
+    {
+        // Open sell position
+        OrderSend(Symbol(), OP_SELL, lotSize, Bid, 3, Ask+StopLoss*Point, Ask-TakeProfit*Point);
+
+        // Close buy position if one is open
+        if (PositionSelect(Symbol()))
+        {
+            if (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)
+                OrderClose(PositionGetTicket(), PositionGetDouble(POSITION_VOLUME), Ask, 3);
+        }
+    }
+}
+
+//--- Logical conclusion
+void OnDeinit(const int reason)
+{
+    // Close all open positions
+    for (int i = 0; i < PositionsTotal(); i++)
+    {
+        PositionSelectByIndex(i);
+        OrderClose(PositionGetTicket(), PositionGetDouble(POSITION_VOLUME), PositionGetDouble(POSITION_CLOSE), 3);
+    }
+}
